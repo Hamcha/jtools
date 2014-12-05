@@ -1,7 +1,17 @@
 #!/bin/sh
 
 list() {
+	if [ $# = 0 ]; then echo "Usage: jsvc list <jail>"; exit 0; fi
 	ezjail-admin console -e "svclist" $1
 }
 
+help() {
+	echo "Usage: jsvc <command> <params>"
+	echo
+	echo "Available commands"
+	echo "    help      Show this screen"
+	echo "    list      Show user services running on a jail"
+}
+
+if [ $# = 0 ]; then help; exit 0; fi
 $@
