@@ -1,0 +1,2 @@
+#!/bin/sh
+service -e | sed 's/\// /g' | awk '/usr/ { print $5 }'

@@ -1,0 +1,7 @@
+#!/bin/sh
+
+list() {
+	ezjail-admin console -e "svclist" $1
+}
+
+$@
