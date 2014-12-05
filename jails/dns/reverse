@@ -1,0 +1,8 @@
+$TTL	86400
+@	IN SOA	jail root.jail.	(
+		1	; Serial
+		28800	; Refresh
+		14400	; Retry
+		3600000	; Expire
+		86400 )	; Minimum
+	IN NS	jail.

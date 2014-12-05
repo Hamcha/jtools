@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# Updates DNS jail records
+# Requires ezjail (used to get jail list)
+
+# Get into the dns jail root
+cd /usr/jails/dns
+
+# Get jail list
+ezjail-admin list > jlist
+
+# Generate zone
+cat zone > zone.gen
+cat jlist | awk '{ if (NR > 2) print $4"     \tIN A\t"$3 }' >> zone.gen
+
+# Generate reverse DNS
+cat reverse > reverse.gen
+cat jlist | awk '{ if (NR > 2) print $3"\tIN PTR\t"$4".jail." }' | sed 's/10.10.10.//' >> reverse.gen
+
+# Remove tmp file
+rm jlist
+
+# Reload BIND config
+ezjail-admin console -e "service named reload" dns
