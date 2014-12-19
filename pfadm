@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+
+declare -A RULES
+
+_assign() {
+	PAIR=($(echo $1 | sed 's/=/ /'))
+	RULES[$(_strip ${PAIR[0]})]=$(_strip ${PAIR[1]})
+}
+_strip() {
+	echo "$1" | sed 's/[\"|\(|\)|$]//ig'
+}
+
+_parseRule() {
+	TYPE=$1
+	shift
+	declare -A PARAMS
+	PARAMS[on]="--"
+	PARAMS[on]="--"
+	PARAMS[proto]="--"
+	PARAMS[from]="--"
+	PARAMS[to]="--"
+	PARAMS[target]="--"
+	OLDPARAM=$1
+	while (("$#")); do
+		PARAM=$1
+		case "$PARAM" in
+			pass|block|all|out|in|quick)
+				TYPE="$TYPE $PARAM";;
+			*)
+				shift
+				# Resolve variables
+				case "$1" in
+					*\$*) VALUE=${RULES[$(_strip $1)]};;
+					*) VALUE=$1;;
+				esac
+				# Assign to param
+				if [[ "$PARAM" == "->" ]]; then
+					PARAM=target
+				fi
+				if [[ "$PARAM" == "port" ]]; then
+					PARAMS[$OLDPARAM]="${PARAMS[$OLDPARAM]}:$VALUE"
+				else
+					PARAMS[$PARAM]=$VALUE
+				fi
+				OLDPARAM=$PARAM;;
+		esac
+		shift
+	done
+	echo -n "${TYPE},${PARAMS[on]},${PARAMS[proto]},${PARAMS[from]},${PARAMS[to]},${PARAMS[target]}"
+}
+
+list() {
+	lineNo=1
+	IFS=$'\n'
+	OUTPUT="NO,RULE,ON,PROTO,FROM,TO,TARGET\n"
+	for LINE in $(cat /etc/pf.conf); do
+		case "$LINE" in
+			\#*)
+				continue;;
+			*=*)
+				IFS=$' '
+				_assign "$LINE"
+				lineNo=$((lineNo - 1));;
+			nat*|rdr*)
+				RINE=$(echo $LINE | tr ' ' '\t')
+				IFS=$'\t'
+				RULE=$(_parseRule $RINE);
+				OUTPUT="${OUTPUT}${lineNo},$RULE\n";;
+			*)
+				echo "Unknown rule: $LINE";;
+		esac
+		lineNo=$((lineNo + 1))
+		IFS=$'\n'
+	done
+	printf $OUTPUT | column -ts $','
+}
+
+help() {
+	echo "Usage: pfadm <command> <params>"
+	echo
+	echo "Available commands"
+	echo "    help      Show this screen"
+	echo "    list      Show all current rules"
+}
+
+if [ $# = 0 ]; then help; exit 0; fi
+$@
