@@ -1,9 +1,0 @@
-#!/bin/sh
-IFS=$'\n'
-for SERVICE in $(service -e | awk '/usr/ {print "sh "$1" status"}' | sh); do
-	NAME=$(echo $SERVICE | awk '{print $1}')
-	case $SERVICE in
-		*pid*) echo R $NAME
-		*) echo S $NAME
-	esac
-done
