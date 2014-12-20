@@ -75,12 +75,22 @@ list() {
 	printf $OUTPUT | column -ts $','
 }
 
+_silent_reload() {
+	service pf reload 2>&1 > /dev/null
+}
+reload() {
+	service pf reload
+}
+
 help() {
 	echo "Usage: pfadm <command> <params>"
 	echo
 	echo "Available commands"
-	echo "    help      Show this screen"
-	echo "    list      Show all current rules"
+	echo "    help          Show this screen"
+	echo "    list          Show all current rules"
+	echo "    reload        Reload the pf daemon"
+	echo "    add-rule      Adds a new rule to the list"
+	echo "    remove-rule   Removes a rule from the list"
 }
 
 if [ $# = 0 ]; then help; exit 0; fi
