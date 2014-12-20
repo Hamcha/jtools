@@ -15,7 +15,7 @@ _parseRule() {
 	shift
 	declare -A PARAMS
 	PARAMS[on]="--"
-	PARAMS[on]="--"
+	PARAMS[dir]="--"
 	PARAMS[proto]="--"
 	PARAMS[from]="--"
 	PARAMS[to]="--"
@@ -24,8 +24,13 @@ _parseRule() {
 	while (("$#")); do
 		PARAM=$1
 		case "$PARAM" in
-			pass|block|all|out|in|quick)
+			pass|block|quick)
 				TYPE="$TYPE $PARAM";;
+			out|in)
+				PARAMS[dir]="$PARAM";;
+			all)
+				PARAMS[from]=any
+				PARAMS[to]=any;;
 			*)
 				shift
 				# Resolve variables
@@ -46,13 +51,13 @@ _parseRule() {
 		esac
 		shift
 	done
-	echo -n "${TYPE},${PARAMS[on]},${PARAMS[proto]},${PARAMS[from]},${PARAMS[to]},${PARAMS[target]}"
+	echo -n "${TYPE},${PARAMS[dir]},${PARAMS[on]},${PARAMS[proto]},${PARAMS[from]},${PARAMS[to]},${PARAMS[target]}"
 }
 
 list() {
 	lineNo=1
 	IFS=$'\n'
-	OUTPUT="NO,RULE,ON,PROTO,FROM,TO,TARGET\n"
+	OUTPUT="NO,RULE,DIR,ON,PROTO,FROM,TO,TARGET\n"
 	for LINE in $(cat /etc/pf.conf); do
 		case "$LINE" in
 			\#*)
@@ -61,7 +66,7 @@ list() {
 				IFS=$' '
 				_assign "$LINE"
 				lineNo=$((lineNo - 1));;
-			nat*|rdr*)
+			nat*|rdr*|scrub*)
 				RINE=$(echo $LINE | tr ' ' '\t')
 				IFS=$'\t'
 				RULE=$(_parseRule $RINE);
@@ -73,6 +78,18 @@ list() {
 		IFS=$'\n'
 	done
 	printf $OUTPUT | column -ts $','
+}
+
+add-rule() {
+	# Try command before applying
+	echo $@ | pfctl -nmf -
+	if [ $? -eq 0 ]; then
+		echo $@ >> /etc/pf.conf
+		echo "Rule added"
+		_silent_reload
+	else
+		echo "Rule is not valid, not added"
+	fi
 }
 
 _silent_reload() {
