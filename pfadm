@@ -15,7 +15,7 @@ _parseRule() {
 	shift
 	declare -A PARAMS
 	PARAMS[on]="--"
-	PARAMS[dir]="--"
+	PARAMS[dir]="i/o"
 	PARAMS[proto]="--"
 	PARAMS[from]="--"
 	PARAMS[to]="--"
@@ -80,16 +80,81 @@ list() {
 	printf $OUTPUT | column -ts $','
 }
 
-add-rule() {
-	# Try command before applying
-	echo $@ | pfctl -nmf -
-	if [ $? -eq 0 ]; then
-		echo $@ >> /etc/pf.conf
-		echo "Rule added"
-		_silent_reload
-	else
-		echo "Rule is not valid, not added"
+remove-rule() {
+	# Usage
+	if [ $# = 0 ]; then
+		echo "Usage: pfadm delete-rule [-n] <number>"
+		exit 0
 	fi
+	# Parameters
+	INTERACTIVE=1
+	while (("$#")); do
+		case $1 in
+			-n) INTERACTIVE=0;;
+			*)
+				lineNo=1
+				physLine=0
+				IFS=$'\n'
+				for LINE in $(cat /etc/pf.conf | awk '{printf; print" x"}'); do
+					physLine=$(($physLine + 1))
+					case "$LINE" in
+						nat*|rdr*|scrub*)
+							if [[ $lineNo -eq $1 ]]; then
+								echo "Removing: "$(echo $LINE | sed 's/x$//')
+								if [ $INTERACTIVE = 1 ]; then
+									read -r -p "Confirm removal? [y/N] " RESP
+									if [[ ! $RESP =~ ^([yY][eE][sS]|[yY])$ ]]; then
+										echo "Rule not removed"
+										exit 0
+									fi
+								fi
+								sed "$physLine"d /etc/pf.conf > /etc/pf.conf.new
+								mv /etc/pf.conf.new /etc/pf.conf
+								echo "Rule removed"
+								exit 0
+							fi;;
+						*)
+							continue;;
+					esac
+					lineNo=$((lineNo + 1))
+				done
+				echo "Rule not found"
+				exit 1;;
+		esac
+	done
+}
+
+add-rule() {
+	# Usage
+	if [ $# = 0 ]; then
+		echo "Usage: pfadm add-rule [-f] <params>"
+		echo "Parameters"
+		echo "    -f    Temporary rule"
+		exit 0
+	fi
+	# Parameters
+	TEMPORARY=0
+	while (("$#")); do
+		case $1 in
+			-t) TEMPORARY=1;;
+			*)
+				if [ $TEMPORARY = 1 ]; then
+					echo $@ | sed 's/target/->/' | pfctl -mf -
+				else
+					# Try command before applying
+					echo $@ | sed 's/target/->/' | pfctl -nmf -
+					if [ $? -eq 0 ]; then
+						echo $@ | sed 's/target/->/' >> /etc/pf.conf
+						echo "Rule added"
+						_silent_reload
+					else
+						echo "Rule is not valid, not added"
+					fi
+				fi
+				exit 0;;
+		esac
+		shift
+	done
 }
 
 _silent_reload() {
@@ -104,7 +169,7 @@ help() {
 	echo
 	echo "Available commands"
 	echo "    help          Show this screen"
-	echo "    list          Show all current rules"
+	echo "    list          Show all defined rules"
 	echo "    reload        Reload the pf daemon"
 	echo "    add-rule      Adds a new rule to the list"
 	echo "    remove-rule   Removes a rule from the list"
